@@ -1,0 +1,54 @@
+#! /bin/bash 
+
+# Needed for perf stat output
+TEMPFILE=".tmpFile.txt"
+
+# Unique characters to check against
+characters="_ad16lu\n28307459m@bo?rh!$/\"(Bn>AD;=eH#P.%'&-+*)x,\`sqOC<:F^W[IL]EGJTRNKXQVMwZSp\\YUigct{fkvj}z~y|\t "
+password=""
+
+PROG="NCL-2017-Spring-InstructionsUnclear-X32"
+HASH="e327b611ec4cd50c1b8e1d47b13c7386"
+
+# Init some Vars
+resetCount=0
+longestChar=""
+longestCount=$resetCount
+
+foo=$characters
+while [ true ]
+do
+    for (( i=0; i<${#foo}; i++ )); do
+        rm $TEMPFILE
+        OUTPUT=$(perf stat -o $TEMPFILE -e instructions:u $PROG $HASH <<< $password${foo:$i:1})
+        DIFF=$(grep "instructions:u" $TEMPFILE | tr -dc '0-9')
+
+        if [ $( echo $OUTPUT | grep "whoo" | wc -m ) != 0 ] 
+        then 
+            # We found our solution!
+            echo "[$password${foo:$i:1}] -> $OUTPUT"
+            exit 1
+        else 
+            echo "[$password${foo:$i:1}] -> $OUTPUT"
+        fi
+
+        cmp=$(echo $longestCount'<'$DIFF | bc -l)
+        if [ $cmp == 1 ] 
+        then
+            echo "$longestCount $longestChar < $DIFF ${foo:$i:1}"
+            longestCount=$DIFF
+            longestChar=${foo:$i:1}
+
+        fi
+        ## Finish with password stuff, and shift characters
+        if [ ${#characters} == $(($i+1)) ] 
+        then
+            # Concatinate password+= 'new Character'
+            password=$password$longestChar
+            longestChar=""
+            longestCount=$resetCount
+        fi
+    done
+done
+
+rm $TEMPFILE
